@@ -1,6 +1,10 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const getApiKey = () => {
+  return process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || "";
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export interface AnalysisResult {
   isFake: boolean;
@@ -9,44 +13,58 @@ export interface AnalysisResult {
 }
 
 export async function analyzeMessage(content: string, imageBase64?: string): Promise<AnalysisResult> {
-  const prompt = `Analyze the following message and determine if it is a scam or fake. 
-  A message is considered FAKE if the risk score is 80% or higher.
-  
-  Provide a JSON response with:
-  - isFake: boolean (true if riskScore >= 80)
-  - riskScore: number (0-100)
-  - reasoning: string (Provide a short, straightforward, and simple explanation that is very easy to understand. Keep it brief and to the point.)
-  
-  Message: "${content}"`;
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("Gemini API Key is missing. Please add GEMINI_API_KEY to your environment variables or secrets.");
+    }
 
-  const parts: any[] = [{ text: prompt }];
-  if (imageBase64) {
-    parts.push({
-      inlineData: {
-        data: imageBase64.split(',')[1],
-        mimeType: "image/png"
+    const prompt = `Analyze the following message and determine if it is a scam or fake. 
+    A message is considered FAKE if the risk score is 80% or higher.
+    
+    Provide a JSON response with:
+    - isFake: boolean (true if riskScore >= 80)
+    - riskScore: number (0-100)
+    - reasoning: string (Provide a short, straightforward, and simple explanation that is very easy to understand. Keep it brief and to the point.)
+    
+    Message: "${content}"`;
+
+    const parts: any[] = [{ text: prompt }];
+    if (imageBase64) {
+      parts.push({
+        inlineData: {
+          data: imageBase64.split(',')[1],
+          mimeType: "image/png"
+        }
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isFake: { type: Type.BOOLEAN },
+            riskScore: { type: Type.NUMBER },
+            reasoning: { type: Type.STRING }
+          },
+          required: ["isFake", "riskScore", "reasoning"]
+        }
       }
     });
-  }
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          isFake: { type: Type.BOOLEAN },
-          riskScore: { type: Type.NUMBER },
-          reasoning: { type: Type.STRING }
-        },
-        required: ["isFake", "riskScore", "reasoning"]
-      }
+    if (!response.text) {
+      throw new Error("Empty response from Gemini AI");
     }
-  });
 
-  return JSON.parse(response.text || "{}");
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Analysis Error:", error);
+    throw error;
+  }
 }
 
 export async function speakText(text: string): Promise<string | undefined> {

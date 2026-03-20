@@ -28,6 +28,7 @@ export default function Chat({ user }: ChatProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +93,7 @@ How can I help you today? You can paste a message or upload a picture.`,
     setInput('');
     setSelectedImage(null);
     setIsAnalyzing(true);
+    setError(null);
 
     const path = `users/${user.uid}/chats`;
     const userMsg = {
@@ -119,9 +121,15 @@ How can I help you today? You can paste a message or upload a picture.`,
       // Auto-speak the result for elderly users
       handleSpeak(result.reasoning);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis Error:", error);
-      handleFirestoreError(error, OperationType.CREATE, path);
+      const errorMessage = error?.message || "Something went wrong while analyzing the message.";
+      setError(errorMessage);
+      
+      // If it's a Firestore error, we still want to log it properly
+      if (error?.code || error?.message?.includes('permission')) {
+        handleFirestoreError(error, OperationType.CREATE, path);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -259,6 +267,13 @@ How can I help you today? You can paste a message or upload a picture.`,
           <div className="flex items-center gap-4 text-stone-400 animate-pulse">
             <Loader2 className="w-6 h-6 animate-spin" />
             <span className="text-lg font-medium">AI is analyzing the message...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+            <p>{error}</p>
           </div>
         )}
         <div ref={messagesEndRef} />
