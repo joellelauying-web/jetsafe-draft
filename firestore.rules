@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isValidMessage(data) {
+      return data.keys().hasAll(['uid', 'content', 'type', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.content is string && data.content.size() < 5000 &&
+             data.type in ['user', 'ai'] &&
+             data.createdAt is string;
+    }
+
+    match /users/{userId}/chats/{chatId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidMessage(request.resource.data);
+      allow update: if false; // Messages are immutable
+      allow delete: if isOwner(userId);
+    }
+  }
+}

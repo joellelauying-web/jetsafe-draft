@@ -1,0 +1,5 @@
+{
+  "name": "JETSafe AI",
+  "description": "AI-powered scam detection for everyone. Protect yourself from fake messages with real-time analysis, voice assistance, and easy-to-follow tutorials.",
+  "requestFramePermissions": ["camera"]
+}

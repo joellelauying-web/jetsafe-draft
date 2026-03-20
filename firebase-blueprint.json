@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "chatMessage": {
+      "title": "Chat Message",
+      "description": "A message sent by the user or the AI for scam analysis.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user ID of the sender." },
+        "content": { "type": "string", "description": "The text content of the message." },
+        "type": { "type": "string", "enum": ["user", "ai"], "description": "Whether the message is from the user or AI." },
+        "analysis": {
+          "type": "object",
+          "properties": {
+            "isFake": { "type": "boolean" },
+            "riskScore": { "type": "number" },
+            "reasoning": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the message was created." }
+      },
+      "required": ["uid", "content", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/chats": {
+      "schema": "chatMessage",
+      "description": "The chat history for a specific user."
+    }
+  }
+}
